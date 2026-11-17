@@ -34,7 +34,7 @@ Get started quickly with pre-built flow templates. Covers common use cases like 
 ## Features
 
 ### Server Management
-- Dashboard with live server stats, bandwidth graph, and capacity overview
+- Dashboard with live server stats, online user history (6h–90d), bandwidth graph, and capacity overview
 - Virtual server list with start/stop controls
 - Channel tree with drag-and-drop ordering
 - Client list with kick, ban, move, poke actions
@@ -89,6 +89,7 @@ Get started quickly with pre-built flow templates. Covers common use cases like 
 - SSRF protection on all outbound HTTP requests and FFmpeg URLs
 - Rate limiting on authentication endpoints
 - JWT access + refresh token rotation with reuse detection
+- Optional "Stay logged in" (sliding 30-day sessions, configurable)
 - Role-based access control (admin / viewer)
 - Per-server access control for multi-tenant setups
 - WebQuery command whitelist in bot flows (blocks destructive commands)
@@ -235,7 +236,10 @@ The Docker images handle migrations automatically on startup.
 | `PORT` | `3001` | Backend port |
 | `DATABASE_URL` | `file:./data/ts6webui.db` | SQLite database path |
 | `JWT_ACCESS_EXPIRY` | `15m` | Access token lifetime |
-| `JWT_REFRESH_EXPIRY` | `7d` | Refresh token lifetime |
+| `REFRESH_REMEMBER_DAYS` | `30` | Session lifetime in days when **Stay logged in** is checked. Sliding — every visit extends it. |
+| `REFRESH_SESSION_DAYS` | `1` | Session lifetime in days when **Stay logged in** is unchecked (also ends when the browser is closed). |
+| `STATS_SAMPLE_INTERVAL_MINUTES` | `5` | How often the online user count is recorded for the dashboard history chart |
+| `STATS_RETENTION_DAYS` | `90` | How long online user history is kept |
 | `FRONTEND_URL` | `http://localhost:3000` | CORS origin |
 | `MUSIC_DIR` | `/data/music` | Directory for downloaded music files |
 | `SIDECAR_URL` | — | Optional. Full URL of the WebRTC sidecar service (e.g. `http://ts6-sidecar:9800`). Set in Docker when sidecar runs as a separate container. |

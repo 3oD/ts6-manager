@@ -32,6 +32,8 @@ model RefreshToken {
   createdAt  DateTime @default(now())
   family     String?
   replacedBy String?
+  // true = "Stay logged in" (long-lived, survives browser restarts)
+  persistent Boolean  @default(true)
 }
 
 model UserServerAccess {
@@ -66,6 +68,7 @@ model TsServerConfig {
   radioStations RadioStation[]
   widgets       Widget[]
   musicRequests MusicRequest[]
+  clientSamples ClientCountSample[]
 }
 
 model BotFlow {
@@ -242,4 +245,19 @@ model StreamSession {
   startedAt      DateTime  @default(now())
   endedAt        DateTime?
   peakViewers    Int       @default(0)
+}
+
+// === Online user history (sampled periodically) ===
+
+model ClientCountSample {
+  id              Int            @id @default(autoincrement())
+  serverConfigId  Int
+  serverConfig    TsServerConfig @relation(fields: [serverConfigId], references: [id], onDelete: Cascade)
+  virtualServerId Int
+  clients         Int
+  maxClients      Int            @default(0)
+  timestamp       DateTime       @default(now())
+
+  @@index([serverConfigId, virtualServerId, timestamp])
+  @@index([timestamp])
 }
