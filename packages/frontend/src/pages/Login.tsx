@@ -11,6 +11,7 @@ import { Loader2, AlertCircle } from 'lucide-react';
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const login = useLogin();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
 
@@ -18,7 +19,7 @@ export default function Login() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    login.mutate({ username, password });
+    login.mutate({ username, password, rememberMe });
   };
 
   return (
@@ -64,6 +65,16 @@ export default function Login() {
                   autoComplete="current-password"
                 />
               </div>
+
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+                />
+                Stay logged in
+              </label>
 
               {login.isError && (
                 <div className="flex items-center gap-2 text-destructive text-xs bg-destructive/10 rounded-md px-3 py-2">

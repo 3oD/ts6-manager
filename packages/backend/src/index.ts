@@ -7,6 +7,7 @@ import { BotEngine } from './bot-engine/engine.js';
 import { VoiceBotManager } from './voice/voice-bot-manager.js';
 import { MusicCommandHandler } from './voice/music-command-handler.js';
 import { config } from './config.js';
+import { ClientHistoryCollector } from './stats/client-history-collector.js';
 import { setYtCookieFile } from './voice/audio/youtube.js';
 import jwt from 'jsonwebtoken';
 import fs from 'fs';
@@ -65,6 +66,10 @@ async function main() {
   app.locals.connectionPool = connectionPool;
   app.locals.wss = wss;
 
+  // Record online user counts for the dashboard history chart
+  const historyCollector = new ClientHistoryCollector(prisma, connectionPool);
+  historyCollector.start();
+
   // Initialize Bot Engine
   const botEngine = new BotEngine(prisma, connectionPool, wss, app);
   app.locals.botEngine = botEngine;
@@ -94,6 +99,7 @@ async function main() {
     console.log('\n[TS6 WebUI] Shutting down...');
     await voiceBotManager.stopAll();
     botEngine.destroy();
+    historyCollector.destroy();
     connectionPool.destroy();
     wss.close();
     server.close();

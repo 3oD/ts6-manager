@@ -8,10 +8,10 @@ export function useLogin() {
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: ({ username, password }: { username: string; password: string }) =>
-      authApi.login(username, password),
-    onSuccess: (data) => {
-      setAuth(data.accessToken, data.refreshToken, data.user);
+    mutationFn: ({ username, password, rememberMe }: { username: string; password: string; rememberMe: boolean }) =>
+      authApi.login(username, password, rememberMe),
+    onSuccess: (data, vars) => {
+      setAuth(data.accessToken, data.refreshToken, data.user, data.rememberMe ?? vars.rememberMe);
       navigate('/dashboard');
     },
   });

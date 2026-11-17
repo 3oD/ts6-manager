@@ -41,6 +41,10 @@ export class ConnectionPool {
     return client;
   }
 
+  getClientIds(): number[] {
+    return [...this.clients.keys()];
+  }
+
   hasClient(configId: number): boolean {
     return this.clients.has(configId);
   }

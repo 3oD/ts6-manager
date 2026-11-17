@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PageLoader } from '@/components/shared/LoadingSpinner';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { WidgetManagerModal } from '@/components/widget/WidgetManagerModal';
+import { UserHistoryChart } from '@/components/dashboard/UserHistoryChart';
 import { formatBytes, formatUptime } from '@/lib/utils';
 import { Users, Activity, Clock, Hash, ArrowDownToLine, ArrowUpFromLine, Wifi, Server, LayoutGrid } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer } from 'recharts';
@@ -141,6 +142,9 @@ export default function Dashboard() {
           accentColor="text-amber-400"
         />
       </div>
+
+      {/* Online users history */}
+      <UserHistoryChart />
 
       {/* Bandwidth + Detail panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

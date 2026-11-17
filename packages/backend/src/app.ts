@@ -58,7 +58,17 @@ export function createApp(): Express {
     message: { error: 'Too many attempts, please try again later' },
   });
   app.use('/api/auth/login', authLimiter);
-  app.use('/api/auth/refresh', authLimiter);
+  // Refresh is called automatically by every open tab whenever the access token
+  // expires, so it gets a more generous limit than login. Hitting the limit
+  // would otherwise log users out unexpectedly.
+  const refreshLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many attempts, please try again later' },
+  });
+  app.use('/api/auth/refresh', refreshLimiter);
 
   // Public routes
   app.use('/api/setup', setupRoutes);

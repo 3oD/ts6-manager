@@ -10,9 +10,16 @@ import { validatePassword } from '../utils/validate-password.js';
 
 export const authRoutes: Router = Router();
 
+function refreshExpiry(persistent: boolean): Date {
+  const days = persistent ? config.refreshRememberDays : config.refreshSessionDays;
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+}
+
 authRoutes.post('/login', async (req: Request, res: Response, next) => {
   try {
     const { username, password } = req.body;
+    // Default to "stay logged in" for older clients that don't send the flag
+    const persistent = req.body.rememberMe !== false;
     if (!username || !password) throw new AppError(400, 'Username and password required');
 
     const prisma = req.app.locals.prisma;
@@ -27,12 +34,15 @@ authRoutes.post('/login', async (req: Request, res: Response, next) => {
     const accessToken = jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtAccessExpiry } as jwt.SignOptions);
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const family = nanoid();
+    const expiresAt = refreshExpiry(persistent);
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    // Housekeeping: drop this user's expired refresh tokens
+    await prisma.refreshToken.deleteMany({
+      where: { userId: user.id, expiresAt: { lt: new Date() } },
+    });
 
     await prisma.refreshToken.create({
-      data: { token: refreshToken, userId: user.id, expiresAt, family },
+      data: { token: refreshToken, userId: user.id, expiresAt, family, persistent },
     });
 
     await prisma.user.update({
@@ -43,6 +53,7 @@ authRoutes.post('/login', async (req: Request, res: Response, next) => {
     res.json({
       accessToken,
       refreshToken,
+      rememberMe: persistent,
       user: {
         id: user.id,
         username: user.username,
@@ -83,9 +94,9 @@ authRoutes.post('/refresh', async (req: Request, res: Response, next) => {
     }
 
     // Rotate: mark old token as replaced, create new one in same family
+    // Sliding expiry: an active session keeps getting extended
     const newRefreshToken = crypto.randomBytes(64).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    const expiresAt = refreshExpiry(stored.persistent);
 
     await prisma.refreshToken.update({
       where: { id: stored.id },
@@ -93,7 +104,13 @@ authRoutes.post('/refresh', async (req: Request, res: Response, next) => {
     });
 
     await prisma.refreshToken.create({
-      data: { token: newRefreshToken, userId: stored.userId, expiresAt, family: stored.family },
+      data: {
+        token: newRefreshToken,
+        userId: stored.userId,
+        expiresAt,
+        family: stored.family,
+        persistent: stored.persistent,
+      },
     });
 
     // Delete old token after creating new one
