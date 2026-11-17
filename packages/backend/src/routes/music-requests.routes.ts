@@ -1,6 +1,10 @@
+import { requireRole } from '../middleware/rbac.js';
 import { Router, Request, Response, NextFunction } from 'express';
 
 export const musicRequestRoutes: Router = Router({ mergeParams: true });
+
+// Admin only — including reads (these expose sensitive server data)
+musicRequestRoutes.use(requireRole('admin'));
 
 musicRequestRoutes.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {

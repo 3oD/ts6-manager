@@ -4,6 +4,9 @@ import { requireRole } from '../middleware/rbac.js';
 
 export const messageRoutes: Router = Router({ mergeParams: true });
 
+// Admin only — including reads (these expose sensitive server data)
+messageRoutes.use(requireRole('admin'));
+
 const getClient = (req: Request) => {
   const pool: ConnectionPool = req.app.locals.connectionPool;
   return pool.getClient(parseInt(String(req.params.configId)));

@@ -4,6 +4,9 @@ import { AppError } from '../middleware/error-handler.js';
 
 export const botRoutes: Router = Router();
 
+// Admin only — including reads (these expose sensitive server data)
+botRoutes.use(requireRole('admin'));
+
 botRoutes.get('/', async (req: Request, res: Response, next) => {
   try {
     const prisma = req.app.locals.prisma;
@@ -142,7 +145,10 @@ botRoutes.get('/:botId/executions/:execId/logs', async (req: Request, res: Respo
   try {
     const prisma = req.app.locals.prisma;
     const logs = await prisma.botExecutionLog.findMany({
-      where: { executionId: parseInt(String(req.params.execId)) },
+      where: {
+        executionId: parseInt(String(req.params.execId)),
+        execution: { flowId: parseInt(String(req.params.botId)) },
+      },
       orderBy: { timestamp: 'asc' },
     });
     res.json(logs);

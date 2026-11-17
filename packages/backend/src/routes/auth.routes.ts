@@ -164,13 +164,17 @@ authRoutes.put('/password', authMiddleware, async (req: Request, res: Response, 
     if (!user) throw new AppError(404, 'User not found');
 
     const valid = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!valid) throw new AppError(401, 'Current password is incorrect');
+    // 400, not 401: a 401 makes the frontend think the session expired
+    if (!valid) throw new AppError(400, 'Current password is incorrect');
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
 
-    // Revoke all refresh tokens on password change
-    await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+    // Revoke all other sessions on password change, but keep the one making this request
+    const keepToken = typeof req.body.refreshToken === 'string' ? req.body.refreshToken : undefined;
+    await prisma.refreshToken.deleteMany({
+      where: { userId: user.id, ...(keepToken && { token: { not: keepToken } }) },
+    });
 
     res.status(204).send();
   } catch (err) { next(err); }

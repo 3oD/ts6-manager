@@ -117,7 +117,7 @@ model BotExecutionLog {
   executionId    Int?
   execution      BotExecution?  @relation(fields: [executionId], references: [id], onDelete: Cascade)
   serverConfigId Int
-  serverConfig   TsServerConfig @relation(fields: [serverConfigId], references: [id])
+  serverConfig   TsServerConfig @relation(fields: [serverConfigId], references: [id], onDelete: Cascade)
   flowId         Int?
   nodeId         String?
   nodeName       String?
