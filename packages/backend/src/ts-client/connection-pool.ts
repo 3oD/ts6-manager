@@ -21,6 +21,9 @@ export class ConnectionPool {
   }
 
   addClient(id: number, host: string, port: number, apiKey: string, useHttps: boolean): void {
+    // Close the previous connection (e.g. after editing the server), otherwise its
+    // keep-alive socket lingers as an extra "serveradmin" query client on the TS server
+    this.clients.get(id)?.destroy();
     const client = new WebQueryClient(host, port, apiKey, useHttps);
     this.clients.set(id, client);
   }

@@ -4,6 +4,7 @@ import { AppError } from '../middleware/error-handler.js';
 import { WebQueryClient } from '../ts-client/webquery-client.js';
 import type { ConnectionPool } from '../ts-client/connection-pool.js';
 import { encrypt, decrypt } from '../utils/crypto.js';
+import { requireServerAccess } from '../middleware/server-access.js';
 
 export const serverRoutes: Router = Router();
 
@@ -11,7 +12,12 @@ export const serverRoutes: Router = Router();
 serverRoutes.get('/', async (req: Request, res: Response, next) => {
   try {
     const prisma = req.app.locals.prisma;
+    // Viewers only see the servers they were granted access to
+    const where = req.user?.role === 'admin'
+      ? {}
+      : { userAccess: { some: { userId: req.user!.id } } };
     const servers = await prisma.tsServerConfig.findMany({
+      where,
       select: {
         id: true, name: true, host: true, webqueryPort: true,
         useHttps: true, sshPort: true, enabled: true,
@@ -58,7 +64,7 @@ serverRoutes.post('/', requireRole('admin'), async (req: Request, res: Response,
 });
 
 // Get server connection details
-serverRoutes.get('/:configId', async (req: Request, res: Response, next) => {
+serverRoutes.get('/:configId', requireServerAccess(), async (req: Request, res: Response, next) => {
   try {
     const prisma = req.app.locals.prisma;
     const server = await prisma.tsServerConfig.findUnique({

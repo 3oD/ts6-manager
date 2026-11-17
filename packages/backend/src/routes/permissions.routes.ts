@@ -1,7 +1,11 @@
+import { requireRole } from '../middleware/rbac.js';
 import { Router, Request, Response } from 'express';
 import type { ConnectionPool } from '../ts-client/connection-pool.js';
 
 export const permissionRoutes: Router = Router({ mergeParams: true });
+
+// Admin only — including reads (these expose sensitive server data)
+permissionRoutes.use(requireRole('admin'));
 
 const getClient = (req: Request) => {
   const pool: ConnectionPool = req.app.locals.connectionPool;

@@ -247,7 +247,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <WidgetManagerModal open={showWidgets} onOpenChange={setShowWidgets} />
+      {isAdmin && <WidgetManagerModal open={showWidgets} onOpenChange={setShowWidgets} />}
     </div>
   );
 }

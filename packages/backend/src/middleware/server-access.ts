@@ -15,21 +15,26 @@ export function requireServerAccess() {
       return;
     }
 
-    const prisma = req.app.locals.prisma;
-    const access = await prisma.userServerAccess.findUnique({
-      where: {
-        userId_serverConfigId: {
-          userId: req.user!.id,
-          serverConfigId: configId,
+    try {
+      const prisma = req.app.locals.prisma;
+      const access = await prisma.userServerAccess.findUnique({
+        where: {
+          userId_serverConfigId: {
+            userId: req.user!.id,
+            serverConfigId: configId,
+          },
         },
-      },
-    });
+      });
 
-    if (!access) {
-      res.status(403).json({ error: 'No access to this server' });
-      return;
+      if (!access) {
+        res.status(403).json({ error: 'No access to this server' });
+        return;
+      }
+
+      next();
+    } catch (err) {
+      // Express 4 doesn't catch async errors — without this the request hangs
+      next(err);
     }
-
-    next();
   };
 }

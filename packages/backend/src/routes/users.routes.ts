@@ -8,6 +8,11 @@ const VALID_ROLES = ['admin', 'viewer'];
 
 export const userRoutes: Router = Router();
 
+/** Number of enabled admins, optionally ignoring one user. */
+async function countOtherActiveAdmins(prisma: any, excludeId: number): Promise<number> {
+  return prisma.user.count({ where: { role: 'admin', enabled: true, id: { not: excludeId } } });
+}
+
 userRoutes.use(requireRole('admin'));
 
 userRoutes.get('/', async (req: Request, res: Response, next) => {
@@ -60,7 +65,23 @@ userRoutes.put('/:userId', async (req: Request, res: Response, next) => {
       data.passwordHash = await bcrypt.hash(req.body.password, 12);
     }
 
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) throw new AppError(404, 'User not found');
+
+    // Never leave the panel without an enabled admin
+    const losesAdmin = target.role === 'admin' && target.enabled
+      && ((data.role !== undefined && data.role !== 'admin') || data.enabled === false);
+    if (losesAdmin && (await countOtherActiveAdmins(prisma, id)) === 0) {
+      throw new AppError(400, 'Cannot demote or disable the last admin account');
+    }
+
     await prisma.user.update({ where: { id }, data });
+
+    // A password reset or disabling the account ends all of that user's sessions
+    if (data.passwordHash || data.enabled === false) {
+      await prisma.refreshToken.deleteMany({ where: { userId: id } });
+    }
+
     res.status(204).send();
   } catch (err) { next(err); }
 });
@@ -70,6 +91,11 @@ userRoutes.delete('/:userId', async (req: Request, res: Response, next) => {
     const prisma = req.app.locals.prisma;
     const id = parseInt(String(req.params.userId));
     if (id === req.user!.id) throw new AppError(400, 'Cannot delete your own account');
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) throw new AppError(404, 'User not found');
+    if (target.role === 'admin' && target.enabled && (await countOtherActiveAdmins(prisma, id)) === 0) {
+      throw new AppError(400, 'Cannot delete the last admin account');
+    }
     await prisma.user.delete({ where: { id } });
     res.status(204).send();
   } catch (err) { next(err); }

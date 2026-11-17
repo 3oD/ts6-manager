@@ -6,6 +6,9 @@ import type { BotEngine } from '../bot-engine/engine.js';
 
 export const fileRoutes: Router = Router({ mergeParams: true });
 
+// Admin only — including reads (these expose sensitive server data)
+fileRoutes.use(requireRole('admin'));
+
 const getConfigId = (req: Request) => parseInt(String(req.params.configId));
 const getSid = (req: Request) => parseInt(String(req.params.sid));
 
