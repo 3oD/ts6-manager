@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+# Cancel superseded runs for the same PR / branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: Typecheck & build (backend, frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @ts6/common run build
+
+      - name: Generate Prisma client
+        run: pnpm --filter @ts6/backend exec prisma generate
+
+      - name: Typecheck backend
+        run: pnpm --filter @ts6/backend run typecheck
+
+      - name: Build backend
+        run: pnpm --filter @ts6/backend run build
+
+      - name: Build frontend (includes typecheck)
+        run: pnpm --filter @ts6/frontend run build
+
+  sidecar:
+    name: Vet & build (sidecar)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/sidecar
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/sidecar/go.mod
+          cache-dependency-path: packages/sidecar/go.sum
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build -o /dev/null .
+
+  docker:
+    name: Docker image (${{ matrix.component }})
+    needs: [node, sidecar]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io (only used outside pull requests)
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend, sidecar]
+    env:
+      # Push on main and version tags; pull requests only verify the image builds
+      PUSH: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image name and tags
+        id: meta
+        run: |
+          # Registry paths must be lowercase
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ts6-manager"
+          c="${{ matrix.component }}"
+          # Same tag scheme as the upstream images (…:backend, …:frontend, …:sidecar)
+          tags="${image}:${c}-${GITHUB_SHA::7}"
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            tags="${tags},${image}:${c}"
+          fi
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            tags="${tags},${image}:${c}-${GITHUB_REF_NAME}"
+          fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: env.PUSH == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build${{ env.PUSH == 'true' && ' and push' || '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.${{ matrix.component }}
+          push: ${{ env.PUSH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
